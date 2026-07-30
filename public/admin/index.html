@@ -74,6 +74,8 @@ function render() {
   const server = document.createElement('div');
   server.className = 'section';
   server.innerHTML = '<h2>Server</h2>';
+  server.appendChild(makeRow('Listening port (requires restart)', ['server','port'], settings.server.port));
+  server.appendChild(makeRow('Bind host', ['server','host'], settings.server.host, 'text'));
   server.appendChild(makeRow('Round length (ms)', ['server','roundLengthMs'], settings.server.roundLengthMs));
   server.appendChild(makeRow('Intermission (ms)', ['server','intermissionMs'], settings.server.intermissionMs));
   app.appendChild(server);

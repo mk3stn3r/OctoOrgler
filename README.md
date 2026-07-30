@@ -4,6 +4,24 @@ OctoOrgler is a 1-4 player reaction game built around an 8-LED satellite lamp (G
 
 The game drives a real Philips Hue-connected lamp via OSC (through the `osc2hue` bridge to the openhue/Hue API), and automatically falls back to a split-screen browser visualization if the physical lamp isn't reachable on the network.
 
+> Meet the OctoOrgler mascot — a violet comic octopus whose head is a glowing lightbulb and whose tentacles are lined with color-coded bulbs instead of suction cups, echoing the game's 8-bulb lamp mechanic. See `octoorgler_mascot.png` in this repo for the artwork.
+>
+> A retro 16-bit reinterpretation, styled after classic early-90s LucasArts adventure game art (think *Day of the Tentacle*), is also included as `octoorgler_16bit.png` for a nostalgic alternate branding option.
+>
+> A refined version with a uniform turquoise tentacle and an in-scene "OCTO ORGLER" door sign, downsampled for an even more authentic chunky-pixel look, is included as `octoorgler_16bit_v2.png`.
+>
+> The final version, `octoorgler_16bit_v3.png`, gives each tentacle its own single distinct color (one uniform color per arm across all eight) and features a blue Verner Panton "Amoeba" chair in the background room.
+>
+> The latest version, `octoorgler_16bit_v4.png`, features the correct Verner Panton "Amoeba Highback Lounge Chair" in cobalt blue and a fully redesigned retro-futuristic space-age room (curved shapes, atomic-age decor, glossy accents), while keeping the original carpet unchanged.
+>
+> The final version, `octoorgler_16bit_v5.png`, corrects the chair to the tall C-shaped curled-base lounge design (cobalt blue) and gives the octopus a sly, asymmetrical smirk with one eye larger than the other for extra character.
+>
+> The definitive version, `octoorgler_16bit_v6.png`, uses the correct Verner Panton "Amoebe Highback" legless continuous-curve chair (cobalt blue), and swaps the floor lamp for a twin pleated-shade retro design.
+>
+> `octoorgler_16bit_v7.png` rescales the Amoebe chair to a proportionally accurate size relative to the twin-shade floor lamp for a more realistic room composition.
+>
+> `octoorgler_16bit_v8.png` completes the room styling with an abstract geometric art print (replacing the wall clock), a tall record shelf unit (replacing the low sideboard), and a white Art Deco-style door still bearing the "OCTO ORGLER" sign.
+
 ## Features
 
 - 1-4 player support, including a solo "beat your high score" mode
@@ -66,3 +84,6 @@ See RULES_OF_THE_GAME.md for full rules, difficulty mode breakdowns, and scoring
 ## License
 
 Internal / personal project — add your preferred license here before distributing.
+
+
+The game now boots with a retro loading screen (`public/loading.html`) featuring the 16-bit mascot artwork and a floppy-disk-drive sound effect before transitioning into the main lobby.

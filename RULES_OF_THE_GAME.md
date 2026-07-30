@@ -1,3 +1,5 @@
+![OctoOrgler Mascot](octoorgler_16bit_v8.png)
+
 # RULES_OF_THE_GAME.md
 
 ## Objective

@@ -2,7 +2,8 @@
   "server": {
     "port": 3000,
     "roundLengthMs": 30000,
-    "intermissionMs": 4000
+    "intermissionMs": 4000,
+    "host": "0.0.0.0"
   },
   "hue": {
     "oscHost": "127.0.0.1",

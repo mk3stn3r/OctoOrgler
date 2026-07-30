@@ -69,6 +69,32 @@ You should see:
 OctoOrgler running on :3000
 ```
 
+## Changing the Listening Port
+
+The server picks its port using this precedence (highest wins):
+
+1. **CLI flag**: `node server.js --port=8080`
+2. **Environment variable**: `PORT=8080 node server.js`
+3. **Config file**: `server.port` in `config/settings.json` (editable live via the admin dashboard, though it only takes effect after a manual restart since the HTTP server can't rebind while running)
+4. **Default**: `3000` if nothing else is set
+
+Similarly, the bind address defaults to `0.0.0.0` (all network interfaces, needed so phones on the LAN can connect) but can be overridden with the `HOST` environment variable or the `server.host` field in settings.json.
+
+Examples:
+
+```bash
+# Run on port 8080 via CLI flag
+node server.js --port=8080
+
+# Run on port 5000 via environment variable
+PORT=5000 npm start
+
+# Run on a specific interface only
+HOST=192.168.1.50 PORT=4000 npm start
+```
+
+If you change `server.port` or `server.host` through the admin dashboard, restart the Node process afterward for the new value to take effect — the running HTTP listener cannot rebind to a new port without a restart.
+
 ## 7. Connect Players
 
 - On each player's phone (same Wi-Fi/LAN as the server), open `http://<server-ip>:3000`
@@ -84,6 +110,29 @@ Visit `http://<server-ip>:3000/admin` from any browser on the network to view an
 - Run behind a process manager (e.g. `pm2 start server.js`) for persistent uptime.
 - If exposing beyond your LAN, put the server behind a reverse proxy (e.g. nginx) with TLS — Socket.IO and OSC traffic should stay on the local network only; do not expose the OSC bridge port publicly.
 - Back up `data/highscores.json` periodically if you care about long-term score history.
+
+## Custom Sputnik Lamp SVG (Offline/Browser Fallback Board)
+
+The browser fallback view (`lamp.html`) renders the game's 8-bulb lamp using an inline SVG board instead of plain CSS dots, for a more authentic visual match to the physical GDR satellite lamp.
+
+1. Place your lamp artwork as `public/assets/sputnik_lamp.svg`.
+2. Open the SVG and tag the 8 shapes representing individual bulbs with sequential IDs matching your lamp's physical layout (outer ring first, then inner ring):
+
+```xml
+<circle id="bulb-0" ... />
+<circle id="bulb-1" ... />
+...
+<circle id="bulb-7" ... />
+```
+
+3. `lampBoard.js` fetches this SVG, injects it inline into the page, and looks up each `#bulb-N` element to control its `fill` color and glow (`drop-shadow`) live as the game runs.
+4. If the SVG fails to load or the bulb IDs aren't found, the game automatically falls back to simple animated CSS dots so the game remains playable regardless.
+
+## Loading Screen
+
+Navigating to the server's root URL (`/`) now serves `public/loading.html` first — a retro boot screen showing the `octoorgler_16bit_v8.png` mascot art with a flicker animation, a green terminal-style progress bar, and a synthesized floppy-disk-drive loading sound (`public/assets/floppy_drive.wav`). After ~3.4 seconds it auto-redirects to the main game lobby (`index.html`).
+
+Note: the included `floppy_drive.wav` is a synthesized approximation of a floppy drive seek sound (clicking + motor whir), not a licensed recording. Swap in your own `.wav`/`.mp3` file at that path if you have a real sample you'd prefer to use — just update the `<audio>` `src` in `loading.html` accordingly. Browsers may block audio autoplay until the user interacts with the page at least once; the script includes a fallback that plays on first click if autoplay is blocked.
 
 ## 10. Troubleshooting
 

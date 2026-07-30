@@ -1,31 +1,31 @@
 const socket = io();
-const lampArea = document.getElementById('lampArea');
-const leds = [];
-const positions = [0,90,180,270, 45,135,225,315];
+// Bulb visuals are now rendered via the sputnik_lamp.svg board (lampBoard.js),
+// using setBulbVisual(index, color) exposed globally once the SVG loads.
+let pendingBulbState = null;
 
-if (lampArea) {
-  for (let i = 0; i < 8; i++) {
-    const el = document.createElement('div');
-    el.className = 'led';
-    const radius = i < 4 ? 160 : 90;
-    const rad = (positions[i] * Math.PI) / 180;
-    el.style.left = `calc(50% + ${radius * Math.cos(rad)}px)`;
-    el.style.top = `calc(50% + ${radius * Math.sin(rad)}px)`;
-    lampArea.appendChild(el);
-    leds.push(el);
-  }
+function applyBulbState(state) {
+  state.forEach((c, i) => setBulbVisual(i, c));
 }
 
-socket.on('bulbState', state => state.forEach((c, i) => { if (leds[i]) leds[i].style.background = c || '#333'; }));
-socket.on('bulbUpdate', ({ bulb, color }) => { if (leds[bulb]) leds[bulb].style.background = color || '#333'; });
+window.addEventListener('lampBoardReady', () => {
+  if (pendingBulbState) applyBulbState(pendingBulbState);
+});
+
+socket.on('bulbState', state => {
+  if (window.lampBulbElements) applyBulbState(state);
+  else pendingBulbState = state;
+});
+
+socket.on('bulbUpdate', ({ bulb, color }) => {
+  if (window.lampBulbElements) setBulbVisual(bulb, color);
+});
+
 socket.on('capture', ({ bulbIndex, newColor }) => {
-  const led = leds[bulbIndex];
-  if (led) {
-    led.style.boxShadow = '0 0 40px 15px #fff';
-    setTimeout(() => {
-      led.style.background = newColor;
-      led.style.boxShadow = `0 0 20px 5px ${newColor}`;
-    }, 120);
+  if (!window.lampBulbElements) return;
+  const el = window.lampBulbElements[bulbIndex];
+  if (el) {
+    setBulbVisual(bulbIndex, '#ffffff');
+    setTimeout(() => setBulbVisual(bulbIndex, newColor), 120);
   }
 });
 

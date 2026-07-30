@@ -8,6 +8,10 @@ const settingsManager = require('./game/SettingsManager');
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
+
+app.get('/', (req, res) => {
+  res.sendFile(require('path').join(__dirname, 'public', 'loading.html'));
+});
 app.use('/admin', express.static('public/admin'));
 
 const server = http.createServer(app);
@@ -75,5 +79,23 @@ io.on('connection', socket => {
   });
 });
 
-const PORT = process.env.PORT || initialSettings.server.port || 3000;
-server.listen(PORT, '0.0.0.0', () => console.log(`OctoOrgler running on :${PORT}`));
+// Port resolution precedence: CLI arg > PORT env var > config/settings.json > default 3000
+function resolvePort() {
+  const cliArg = process.argv.find(a => a.startsWith('--port='));
+  if (cliArg) return parseInt(cliArg.split('=')[1], 10);
+  if (process.env.PORT) return parseInt(process.env.PORT, 10);
+  return initialSettings.server.port || 3000;
+}
+
+function resolveHost() {
+  if (process.env.HOST) return process.env.HOST;
+  return initialSettings.server.host || '0.0.0.0';
+}
+
+const PORT = resolvePort();
+const HOST = resolveHost();
+
+server.listen(PORT, HOST, () => {
+  console.log(`OctoOrgler running on ${HOST}:${PORT}`);
+  console.log(`Admin dashboard: http://localhost:${PORT}/admin`);
+});
