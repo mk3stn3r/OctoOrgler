@@ -1,0 +1,79 @@
+{
+  "server": {
+    "port": 3000,
+    "roundLengthMs": 30000,
+    "intermissionMs": 4000
+  },
+  "hue": {
+    "oscHost": "127.0.0.1",
+    "oscPort": 8080,
+    "bulbLightIds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "reachabilityTimeoutMs": 800
+  },
+  "difficultyModes": {
+    "beginner": {
+      "graceMs": 900,
+      "baseIntervalMs": 2600,
+      "bulbsPerPlayer": 2,
+      "graceDecay": 0.92,
+      "obstacleBaseChance": 0.05,
+      "colorCount": 4,
+      "colorDisplayProbability": 0.35
+    },
+    "novice": {
+      "graceMs": 500,
+      "baseIntervalMs": 1800,
+      "bulbsPerPlayer": 4,
+      "graceDecay": 0.92,
+      "obstacleBaseChance": 0.12,
+      "colorCount": 6,
+      "colorDisplayProbability": 0.25
+    },
+    "expert": {
+      "graceMs": 200,
+      "baseIntervalMs": 1100,
+      "bulbsPerPlayer": 6,
+      "graceDecay": 0.9,
+      "obstacleBaseChance": 0.22,
+      "colorCount": 8,
+      "colorDisplayProbability": 0.18
+    }
+  },
+  "obstacles": {
+    "enabledSinglePlayer": true,
+    "enabledMultiplayer": false,
+    "obstacleChanceGrowthPerRound": 0.015,
+    "obstacleChanceCap": 0.6,
+    "trickLightFlashMs": 180,
+    "blinkerIntervalMs": 90,
+    "blinkerFlips": 6,
+    "decoyColorShiftRange": 60
+  },
+  "gameplay": {
+    "speedMultiplier": 1.0,
+    "colorPalette": [
+      "#ff3b30",
+      "#34c759",
+      "#007aff",
+      "#ffcc00",
+      "#af52de",
+      "#ff9500",
+      "#5ac8fa",
+      "#ff2d55"
+    ],
+    "totalBulbs": 8,
+    "captureCooldownMs": 80,
+    "missPenaltyPoints": 1,
+    "scoreFloorZero": true,
+    "maxReassignsPerRound": 2
+  }
+}

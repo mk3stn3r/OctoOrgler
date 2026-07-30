@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>OctoOrgler Admin</title>
+<style>
+  body { font-family: sans-serif; background:#181818; color:#eee; padding:20px; }
+  .section { background:#242424; border-radius:8px; padding:16px; margin-bottom:16px; }
+  .section h2 { margin-top:0; font-size:1.1em; color:#7ecbff; }
+  .row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #333; }
+  .row label { flex:1; }
+  .row input, .row select { width:200px; background:#111; color:#fff; border:1px solid #444; padding:4px; border-radius:4px; }
+  .row input[type=checkbox] { width:auto; }
+</style>
+</head>
+<body>
+<h1>OctoOrgler — Admin Settings</h1>
+<div id="pendingBanner" style="display:none;position:fixed;top:0;left:0;right:0;padding:10px;text-align:center;font-weight:bold;z-index:100;"></div>
+<div id="app"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+let settings = {};
+
+async function loadSettings() {
+  const res = await fetch('/api/settings').then(r => r.json());
+  settings = res.pending;
+  render();
+}
+
+function updateField(pathArr, value) {
+  fetch('/api/settings/field', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: pathArr, value }),
+  });
+}
+
+function makeRow(label, pathArr, value, type) {
+  type = type || 'number';
+  const row = document.createElement('div');
+  row.className = 'row';
+  const lbl = document.createElement('label');
+  lbl.textContent = label;
+  row.appendChild(lbl);
+
+  let input;
+  if (type === 'boolean') {
+    input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = value;
+    input.onchange = () => updateField(pathArr, input.checked);
+  } else if (type === 'array') {
+    input = document.createElement('input');
+    input.type = 'text';
+    input.value = value.join(',');
+    input.onchange = () => updateField(pathArr, input.value.split(',').map(s => s.trim()));
+  } else {
+    input = document.createElement('input');
+    input.type = type === 'text' ? 'text' : 'number';
+    input.step = 'any';
+    input.value = value;
+    input.onchange = () => updateField(pathArr, type === 'number' ? Number(input.value) : input.value);
+  }
+  row.appendChild(input);
+  return row;
+}
+
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+
+  const server = document.createElement('div');
+  server.className = 'section';
+  server.innerHTML = '<h2>Server</h2>';
+  server.appendChild(makeRow('Round length (ms)', ['server','roundLengthMs'], settings.server.roundLengthMs));
+  server.appendChild(makeRow('Intermission (ms)', ['server','intermissionMs'], settings.server.intermissionMs));
+  app.appendChild(server);
+
+  const hue = document.createElement('div');
+  hue.className = 'section';
+  hue.innerHTML = '<h2>Hue / OSC Bridge</h2>';
+  hue.appendChild(makeRow('OSC host', ['hue','oscHost'], settings.hue.oscHost, 'text'));
+  hue.appendChild(makeRow('OSC port', ['hue','oscPort'], settings.hue.oscPort));
+  hue.appendChild(makeRow('Bulb light IDs (comma-sep)', ['hue','bulbLightIds'], settings.hue.bulbLightIds, 'array'));
+  hue.appendChild(makeRow('Reachability timeout (ms)', ['hue','reachabilityTimeoutMs'], settings.hue.reachabilityTimeoutMs));
+  app.appendChild(hue);
+
+  ['beginner','novice','expert'].forEach(mode => {
+    const m = settings.difficultyModes[mode];
+    const sec = document.createElement('div');
+    sec.className = 'section';
+    sec.innerHTML = `<h2>Mode: ${mode}</h2>`;
+    sec.appendChild(makeRow('Grace window (ms)', ['difficultyModes',mode,'graceMs'], m.graceMs));
+    sec.appendChild(makeRow('Base interval (ms)', ['difficultyModes',mode,'baseIntervalMs'], m.baseIntervalMs));
+    sec.appendChild(makeRow('Bulbs per player', ['difficultyModes',mode,'bulbsPerPlayer'], m.bulbsPerPlayer));
+    sec.appendChild(makeRow('Grace decay factor', ['difficultyModes',mode,'graceDecay'], m.graceDecay));
+    sec.appendChild(makeRow('Obstacle base chance', ['difficultyModes',mode,'obstacleBaseChance'], m.obstacleBaseChance));
+    sec.appendChild(makeRow('Color count', ['difficultyModes',mode,'colorCount'], m.colorCount));
+    sec.appendChild(makeRow('Your-color display probability', ['difficultyModes',mode,'colorDisplayProbability'], m.colorDisplayProbability));
+    app.appendChild(sec);
+  });
+
+  const obs = document.createElement('div');
+  obs.className = 'section';
+  obs.innerHTML = '<h2>Obstacles</h2>';
+  obs.appendChild(makeRow('Enabled (single player)', ['obstacles','enabledSinglePlayer'], settings.obstacles.enabledSinglePlayer, 'boolean'));
+  obs.appendChild(makeRow('Enabled (multiplayer)', ['obstacles','enabledMultiplayer'], settings.obstacles.enabledMultiplayer, 'boolean'));
+  obs.appendChild(makeRow('Chance growth / round', ['obstacles','obstacleChanceGrowthPerRound'], settings.obstacles.obstacleChanceGrowthPerRound));
+  obs.appendChild(makeRow('Chance cap', ['obstacles','obstacleChanceCap'], settings.obstacles.obstacleChanceCap));
+  obs.appendChild(makeRow('Trick light flash (ms)', ['obstacles','trickLightFlashMs'], settings.obstacles.trickLightFlashMs));
+  obs.appendChild(makeRow('Blinker interval (ms)', ['obstacles','blinkerIntervalMs'], settings.obstacles.blinkerIntervalMs));
+  obs.appendChild(makeRow('Blinker flips', ['obstacles','blinkerFlips'], settings.obstacles.blinkerFlips));
+  obs.appendChild(makeRow('Decoy color shift range', ['obstacles','decoyColorShiftRange'], settings.obstacles.decoyColorShiftRange));
+  app.appendChild(obs);
+
+  const gp = document.createElement('div');
+  gp.className = 'section';
+  gp.innerHTML = '<h2>Gameplay</h2>';
+  gp.appendChild(makeRow('Speed multiplier', ['gameplay','speedMultiplier'], settings.gameplay.speedMultiplier));
+  gp.appendChild(makeRow('Player colors (comma-sep hex)', ['gameplay','colorPalette'], settings.gameplay.colorPalette, 'array'));
+  gp.appendChild(makeRow('Total bulbs', ['gameplay','totalBulbs'], settings.gameplay.totalBulbs));
+  gp.appendChild(makeRow('Capture cooldown (ms)', ['gameplay','captureCooldownMs'], settings.gameplay.captureCooldownMs));
+  gp.appendChild(makeRow('Miss penalty (points)', ['gameplay','missPenaltyPoints'], settings.gameplay.missPenaltyPoints));
+  gp.appendChild(makeRow('Score floor at zero', ['gameplay','scoreFloorZero'], settings.gameplay.scoreFloorZero, 'boolean'));
+  gp.appendChild(makeRow('Max reassigns / round', ['gameplay','maxReassignsPerRound'], settings.gameplay.maxReassignsPerRound));
+  app.appendChild(gp);
+}
+
+function showBanner(text, ok) {
+  const banner = document.getElementById('pendingBanner');
+  banner.style.display = 'block';
+  banner.textContent = text;
+  banner.style.background = ok ? '#0d5c2e' : '#5c4b00';
+  banner.style.color = '#fff';
+  setTimeout(() => (banner.style.display = 'none'), 2500);
+}
+
+socket.on('settingsPending', pending => {
+  settings = pending;
+  render();
+  showBanner('Changes saved — will apply at the start of the next round', false);
+});
+
+socket.on('settingsCommitted', live => {
+  settings = live;
+  render();
+  showBanner('New settings now active for this round', true);
+});
+
+loadSettings();
+</script>
+</body>
+</html>
