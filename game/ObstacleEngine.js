@@ -36,6 +36,7 @@ class ObstacleEngine {
       const decoyColor = this.nearColor(playerColor, obs.decoyColorShiftRange);
       onFlip(bulbIndex, decoyColor);
     }
+
     return true;
   }
 

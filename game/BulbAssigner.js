@@ -43,6 +43,7 @@ function assignBulbs(playerIds, round, mode) {
   } else {
     throw new Error('Game requires 1-4 players');
   }
+
   return assignment;
 }
 

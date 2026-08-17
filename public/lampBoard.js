@@ -8,15 +8,13 @@
     .then(svgText => {
       lampArea.innerHTML = svgText;
       const svgEl = lampArea.querySelector('svg');
-      if (svgEl) {
-        svgEl.setAttribute('id', 'sputnikSvg');
-      }
+      if (svgEl) svgEl.setAttribute('id', 'sputnikSvg');
+
       window.lampBulbElements = [];
       for (let i = 0; i < 8; i++) {
         const el = lampArea.querySelector(`#bulb-${i}`);
         window.lampBulbElements[i] = el || null;
       }
-      // Notify client.js the board is ready, in case it loaded first
       window.dispatchEvent(new CustomEvent('lampBoardReady'));
     })
     .catch(err => {

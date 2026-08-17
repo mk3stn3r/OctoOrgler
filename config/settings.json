@@ -5,9 +5,10 @@
     "intermissionMs": 4000,
     "host": "0.0.0.0"
   },
-  "hue": {
-    "oscHost": "127.0.0.1",
-    "oscPort": 8080,
+  "deconz": {
+    "gatewayHost": "192.168.178.184",
+    "gatewayPort": 8081,
+    "apiKey": "",
     "bulbLightIds": [
       1,
       2,

@@ -4,8 +4,7 @@
 
 - Node.js 18 or later
 - npm (comes with Node.js)
-- (Optional) A Philips Hue Bridge on the same local network, with your 8-bulb GDR satellite lamp added as two 4-light groups/rings
-- (Optional) [osc2hue](https://github.com/ilesinge/osc2hue) running locally if you want real hardware control
+- A deCONZ gateway (ConBee II/III or RaspBee) on the same local network, with your 8-bulb GDR satellite lamp's Zigbee bulbs paired
 
 ## 1. Clone / Create the Project
 
@@ -17,39 +16,68 @@ npm init -y
 ## 2. Install Dependencies
 
 ```bash
-npm install express socket.io osc nanoid
+npm install express socket.io nanoid dotenv
+npm install --save-dev jest supertest socket.io-client
 ```
 
 ## 3. Directory Setup
 
-Create the following folders if they don't exist yet:
-
 ```bash
-mkdir -p config data game public/admin
+mkdir -p config data game public/admin public/assets
 ```
 
 Place `settings.json` inside `config/`. An empty `highscores.json` (`{}`) will be auto-created in `data/` on first run if missing.
 
-## 4. Configure Hue / OSC Bridge (Optional)
+## 4. Configure the deCONZ Gateway
 
-If you want to control the real lamp:
+OctoOrgler talks directly to your deCONZ REST API over HTTP — no OSC bridge or third-party relay needed.
 
-1. Download and run `osc2hue` for your OS (see its README for the exact binary).
-2. Press the physical link button on your Hue Bridge when prompted during first-run pairing.
-3. Confirm `osc2hue` is listening (default port `8080`).
-4. In `config/settings.json`, set `hue.oscHost` to the machine running osc2hue (use `127.0.0.1` if it's the same machine as the game server) and `hue.oscPort` to match.
-5. Run `openhue get light --json` (via the OpenHue CLI) once to find the actual light IDs for your 8 bulbs, and set `hue.bulbLightIds` in order matching your lamp's physical ring layout (outer ring first, then inner ring).
-
-If no Hue Bridge is reachable, skip this section entirely — the game auto-detects this at startup and switches every client into browser fallback mode.
-
-## 5. Environment Variables (Optional Overrides)
+1. Find your gateway's IP address (check your router, or `GET https://phoscon.de/discover`).
+2. Unlock the gateway for pairing: Phoscon → Settings → Gateway → Advanced → **Authenticate app**.
+3. Acquire an API key:
 
 ```bash
-export HUE_OSC_HOST=127.0.0.1
-export PORT=3000
+curl -X POST http://<gateway-ip>:<port>/api -d '{"devicetype":"octoorgler"}'
 ```
 
-These override values baked into `settings.json` at runtime if set.
+4. Confirm it works:
+
+```bash
+curl http://<gateway-ip>:<port>/api/<your-key>/config
+```
+
+This should return your gateway's config JSON (name, swversion, etc.) if the key and port are correct.
+
+5. List your lights to find their numeric IDs:
+
+```bash
+curl http://<gateway-ip>:<port>/api/<your-key>/lights
+```
+
+6. Set `deconz.bulbLightIds` in `config/settings.json` to those 8 IDs, ordered to match your lamp's physical ring layout (outer ring first, then inner ring).
+
+## 5. Environment Variables (Credentials — Required)
+
+Never commit your real API key to version control. Copy `.env.example` to `.env` and fill in your real values:
+
+```bash
+cp .env.example .env
+```
+
+```
+DECONZ_API_KEY=your_real_key_here
+DECONZ_HOST=192.168.1.100
+DECONZ_PORT=8081
+```
+
+`.env` is already excluded via `.gitignore`. `server.js` loads it automatically via `dotenv` and will refuse to start if no API key is found anywhere (neither `.env` nor `config/settings.json`).
+
+Other optional overrides:
+
+```bash
+export PORT=3000
+export HOST=0.0.0.0
+```
 
 ## 6. Run the Server
 
@@ -66,80 +94,51 @@ node server.js
 You should see:
 
 ```
-OctoOrgler running on :3000
+deCONZ gateway reachable: true
+OctoOrgler running on 0.0.0.0:3000
+Admin dashboard: http://localhost:3000/admin
 ```
 
 ## Changing the Listening Port
 
-The server picks its port using this precedence (highest wins):
-
-1. **CLI flag**: `node server.js --port=8080`
-2. **Environment variable**: `PORT=8080 node server.js`
-3. **Config file**: `server.port` in `config/settings.json` (editable live via the admin dashboard, though it only takes effect after a manual restart since the HTTP server can't rebind while running)
-4. **Default**: `3000` if nothing else is set
-
-Similarly, the bind address defaults to `0.0.0.0` (all network interfaces, needed so phones on the LAN can connect) but can be overridden with the `HOST` environment variable or the `server.host` field in settings.json.
-
-Examples:
-
-```bash
-# Run on port 8080 via CLI flag
-node server.js --port=8080
-
-# Run on port 5000 via environment variable
-PORT=5000 npm start
-
-# Run on a specific interface only
-HOST=192.168.1.50 PORT=4000 npm start
-```
-
-If you change `server.port` or `server.host` through the admin dashboard, restart the Node process afterward for the new value to take effect — the running HTTP listener cannot rebind to a new port without a restart.
+Precedence (highest wins): CLI flag (`--port=8080`) > `PORT` env var > `server.port` in settings.json > default `3000`. Same pattern applies to `HOST` / `server.host`. Changing the port via the admin dashboard requires a manual restart to take effect.
 
 ## 7. Connect Players
 
 - On each player's phone (same Wi-Fi/LAN as the server), open `http://<server-ip>:3000`
-- Enter a name to join the lobby (2-4 players, or start alone for single-player mode)
-- One device (a laptop/tablet/TV) can optionally open `http://<server-ip>:3000/lamp.html` to display the split-screen fallback lamp visualization for spectators
+- Enter a name to join the lobby (1-4 players)
+- Each player's page shows a compact Sputnik-lamp graphic above the tap button, with a pulsing ring around their assigned bulb(s) so they always know where to watch — this updates live as colors change during the round
+- One device (a laptop/tablet/TV) can optionally open `http://<server-ip>:3000/lamp.html` for a full split-screen fallback lamp visualization for spectators
 
 ## 8. Open the Admin Dashboard
 
-Visit `http://<server-ip>:3000/admin` from any browser on the network to view and adjust all settings live. Changes save immediately to `config/settings.json` but only take effect starting the next round — a banner in the dashboard confirms when pending vs. committed.
+Visit `http://<server-ip>:3000/admin` to view and adjust settings live, including the deCONZ gateway host/port and reachability timeout. Changes save immediately but only take effect at the start of the next round.
 
 ## 9. Production Notes
 
-- Run behind a process manager (e.g. `pm2 start server.js`) for persistent uptime.
-- If exposing beyond your LAN, put the server behind a reverse proxy (e.g. nginx) with TLS — Socket.IO and OSC traffic should stay on the local network only; do not expose the OSC bridge port publicly.
-- Back up `data/highscores.json` periodically if you care about long-term score history.
+- Run behind a process manager (e.g. `pm2 start server.js`).
+- Keep deCONZ traffic on your local network only; do not expose the gateway's REST API port publicly.
+- Rotate your deCONZ API key periodically via Phoscon's whitelist management (Settings → Gateway → Advanced), especially if it's ever been shared or pasted anywhere outside your local environment.
+- Back up `data/highscores.json` periodically.
 
-## Custom Sputnik Lamp SVG (Offline/Browser Fallback Board)
+## Custom Sputnik Lamp SVG (Shared Lamp Board + Per-Player Board)
 
-The browser fallback view (`lamp.html`) renders the game's 8-bulb lamp using an inline SVG board instead of plain CSS dots, for a more authentic visual match to the physical GDR satellite lamp.
+Both the shared browser fallback view (`lamp.html`) and each player's own game page (`index.html`) render the 8-bulb lamp using the same tagged SVG at `public/assets/sputnik_lamp.svg`.
 
-1. Place your lamp artwork as `public/assets/sputnik_lamp.svg`.
-2. Open the SVG and tag the 8 shapes representing individual bulbs with sequential IDs matching your lamp's physical layout (outer ring first, then inner ring):
-
-```xml
-<circle id="bulb-0" ... />
-<circle id="bulb-1" ... />
-...
-<circle id="bulb-7" ... />
-```
-
-3. `lampBoard.js` fetches this SVG, injects it inline into the page, and looks up each `#bulb-N` element to control its `fill` color and glow (`drop-shadow`) live as the game runs.
-4. If the SVG fails to load or the bulb IDs aren't found, the game automatically falls back to simple animated CSS dots so the game remains playable regardless.
+The SVG's 8 bulb shapes are tagged `id="bulb-0"` through `id="bulb-7"`, ordered clockwise starting from the top bulb, matching the lamp's physical ring layout. `lampBoard.js` drives the shared board; `myBulbBoard.js` drives the smaller per-player board above the tap button and additionally overlays a pulsing highlight ring around whichever bulb(s) are currently assigned to that player. If the SVG fails to load, both fall back to simple animated CSS dots so the game stays playable.
 
 ## Loading Screen
 
-Navigating to the server's root URL (`/`) now serves `public/loading.html` first — a retro boot screen showing the `octoorgler_16bit_v8.png` mascot art with a flicker animation, a green terminal-style progress bar, and a synthesized floppy-disk-drive loading sound (`public/assets/floppy_drive.wav`). After ~3.4 seconds it auto-redirects to the main game lobby (`index.html`).
-
-Note: the included `floppy_drive.wav` is a synthesized approximation of a floppy drive seek sound (clicking + motor whir), not a licensed recording. Swap in your own `.wav`/`.mp3` file at that path if you have a real sample you'd prefer to use — just update the `<audio>` `src` in `loading.html` accordingly. Browsers may block audio autoplay until the user interacts with the page at least once; the script includes a fallback that plays on first click if autoplay is blocked.
+The server root (`/`) serves `public/loading.html` first — a retro boot screen with mascot art, a green terminal progress bar, and a synthesized floppy-drive sound (`public/assets/floppy_drive.wav`, an approximation, not a licensed recording), then auto-redirects to `index.html` after ~3.4 seconds.
 
 ## 10. Troubleshooting
 
 | Symptom | Likely Cause | Fix |
 |---|---|---|
-| Lamp never lights up | osc2hue not running or wrong host/port | Verify osc2hue is running and `hue.oscHost`/`hue.oscPort` match |
-| Game always falls back to browser mode | Hue Bridge unreachable within timeout | Increase `hue.reachabilityTimeoutMs` in settings, check bridge is powered and on same subnet |
-| Players can't join from phones | Server bound to localhost only, or firewall blocking port 3000 | Ensure server listens on `0.0.0.0` and allow port 3000 through firewall |
-| Colors look wrong on physical lamp | XY color conversion mismatch or wrong `bulbLightIds` order | Re-run `openhue get light --json` and re-map IDs to correct ring order |
-| Settings changes not applying | Working as intended — changes are staged | Wait for current round to end; dashboard shows "pending" vs "committed" status |
+| `TypeError: Cannot read properties of undefined (reading 'bulbLightIds')` | `config/settings.json` still has the old `hue` key instead of `deconz` | Replace the `hue` block with a `deconz` block as shown in this file |
+| Server exits immediately with "No deCONZ API key found" | `.env` missing or `DECONZ_API_KEY` not set | Create `.env` from `.env.example` and fill in your real key |
+| Lamp never lights up | Wrong gateway host/port, or API key revoked | Re-run the `curl .../config` check in Step 4 |
+| Game always falls back to browser mode | Gateway unreachable within timeout | Increase `deconz.reachabilityTimeoutMs`, confirm gateway is powered and reachable |
+| Players can't join from phones | Server bound to localhost only, or firewall blocking the port | Ensure `HOST=0.0.0.0` and the port is allowed through your firewall |
+| Bulb graphic not showing on player page | `public/assets/sputnik_lamp.svg` missing, or bulb IDs not tagged `bulb-0`..`bulb-7` | Confirm the file exists at that path and check browser console for a 404 |
+| Settings changes not applying | Working as intended — changes are staged | Wait for the current round to end |

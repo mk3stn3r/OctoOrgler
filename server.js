@@ -1,8 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const GameEngine = require('./game/GameEngine');
-const HueOSCBridge = require('./game/HueOSCBridge');
+const DeconzBridge = require('./game/DeconzBridge');
 const settingsManager = require('./game/SettingsManager');
 
 const app = express();
@@ -19,24 +20,29 @@ const io = new Server(server);
 
 const initialSettings = settingsManager.getLive();
 
-const hueBridge = new HueOSCBridge({
-  host: process.env.HUE_OSC_HOST || initialSettings.hue.oscHost,
-  port: initialSettings.hue.oscPort,
-  bulbLightIds: initialSettings.hue.bulbLightIds,
-  timeoutMs: initialSettings.hue.reachabilityTimeoutMs,
+const resolvedApiKey = process.env.DECONZ_API_KEY || initialSettings.deconz.apiKey;
+if (!resolvedApiKey) {
+  console.error('No deCONZ API key found. Set DECONZ_API_KEY in your .env file (see .env.example) or deconz.apiKey in config/settings.json.');
+  process.exit(1);
+}
+
+const deconzBridge = new DeconzBridge({
+  gatewayHost: process.env.DECONZ_HOST || initialSettings.deconz.gatewayHost,
+  gatewayPort: process.env.DECONZ_PORT ? parseInt(process.env.DECONZ_PORT, 10) : initialSettings.deconz.gatewayPort,
+  apiKey: resolvedApiKey,
+  bulbLightIds: initialSettings.deconz.bulbLightIds,
+  timeoutMs: initialSettings.deconz.reachabilityTimeoutMs,
 });
 
-const engine = new GameEngine(io, hueBridge);
+deconzBridge.checkReachable().then(reachable => {
+  console.log(`deCONZ gateway reachable: ${reachable}`);
+});
 
-settingsManager.on('updated', settings => {
-  io.emit('settingsUpdated', settings);
-});
-settingsManager.on('pendingUpdated', pending => {
-  io.emit('settingsPending', pending);
-});
-settingsManager.on('committed', live => {
-  io.emit('settingsCommitted', live);
-});
+const engine = new GameEngine(io, deconzBridge);
+
+settingsManager.on('updated', settings => { io.emit('settingsUpdated', settings); });
+settingsManager.on('pendingUpdated', pending => { io.emit('settingsPending', pending); });
+settingsManager.on('committed', live => { io.emit('settingsCommitted', live); });
 
 app.get('/api/settings', (req, res) => {
   res.json({
@@ -50,6 +56,11 @@ app.patch('/api/settings/field', (req, res) => {
   const { path: fieldPath, value } = req.body;
   settingsManager.updatePending(fieldPath, value);
   res.json({ ok: true, pending: settingsManager.getPending() });
+});
+
+app.get('/api/deconz/status', async (req, res) => {
+  const reachable = await deconzBridge.checkReachable();
+  res.json({ reachable });
 });
 
 io.on('connection', socket => {
@@ -79,7 +90,6 @@ io.on('connection', socket => {
   });
 });
 
-// Port resolution precedence: CLI arg > PORT env var > config/settings.json > default 3000
 function resolvePort() {
   const cliArg = process.argv.find(a => a.startsWith('--port='));
   if (cliArg) return parseInt(cliArg.split('=')[1], 10);
@@ -99,3 +109,10 @@ server.listen(PORT, HOST, () => {
   console.log(`OctoOrgler running on ${HOST}:${PORT}`);
   console.log(`Admin dashboard: http://localhost:${PORT}/admin`);
 });
+
+process.on('SIGINT', async () => {
+  await deconzBridge.allOff().catch(() => {});
+  process.exit(0);
+});
+
+module.exports = { app, server, deconzBridge };

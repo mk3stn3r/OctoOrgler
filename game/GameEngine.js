@@ -4,9 +4,9 @@ const HighScoreStore = require('./HighScoreStore');
 const settingsManager = require('./SettingsManager');
 
 class GameEngine {
-  constructor(io, hueBridge) {
+  constructor(io, lampBridge) {
     this.io = io;
-    this.hue = hueBridge;
+    this.hue = lampBridge;
     this.players = new Map();
     this.round = 0;
     this.settings = settingsManager.getLive();
@@ -19,7 +19,7 @@ class GameEngine {
     this.assignment = {};
     this.running = false;
     this.currentGraceMs = this.mode.graceMs;
-    this.obstacles = new ObstacleEngine(hueBridge, this.settings);
+    this.obstacles = new ObstacleEngine(lampBridge, this.settings);
     this.isSinglePlayer = false;
     this.missTimers = {};
     this.reassignCounts = {};
@@ -77,6 +77,7 @@ class GameEngine {
     if (showTargetColor && playerColors.length) {
       return playerColors[Math.floor(Math.random() * playerColors.length)];
     }
+
     const nonTarget = workingPalette.filter(c => !playerColors.includes(c));
     return nonTarget[Math.floor(Math.random() * nonTarget.length)] || workingPalette[0];
   }

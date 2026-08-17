@@ -1,31 +1,38 @@
 const socket = io();
-// Bulb visuals are now rendered via the sputnik_lamp.svg board (lampBoard.js),
-// using setBulbVisual(index, color) exposed globally once the SVG loads.
+
 let pendingBulbState = null;
-
 function applyBulbState(state) {
-  state.forEach((c, i) => setBulbVisual(i, c));
+  state.forEach((c, i) => {
+    if (window.setBulbVisual) setBulbVisual(i, c);
+    if (window.setMyBulbVisual) setMyBulbVisual(i, c);
+  });
 }
-
 window.addEventListener('lampBoardReady', () => {
   if (pendingBulbState) applyBulbState(pendingBulbState);
 });
+window.addEventListener('myBulbBoardReady', () => {
+  if (pendingBulbState) applyBulbState(pendingBulbState);
+  if (myBulbs.length) highlightAssignedBulbs(myBulbs);
+});
 
 socket.on('bulbState', state => {
-  if (window.lampBulbElements) applyBulbState(state);
+  if (window.lampBulbElements || window.myBulbElements) applyBulbState(state);
   else pendingBulbState = state;
 });
 
 socket.on('bulbUpdate', ({ bulb, color }) => {
-  if (window.lampBulbElements) setBulbVisual(bulb, color);
+  if (window.setBulbVisual) setBulbVisual(bulb, color);
+  if (window.setMyBulbVisual) setMyBulbVisual(bulb, color);
 });
 
 socket.on('capture', ({ bulbIndex, newColor }) => {
-  if (!window.lampBulbElements) return;
-  const el = window.lampBulbElements[bulbIndex];
-  if (el) {
+  if (window.setBulbVisual) {
     setBulbVisual(bulbIndex, '#ffffff');
     setTimeout(() => setBulbVisual(bulbIndex, newColor), 120);
+  }
+  if (window.setMyBulbVisual) {
+    setMyBulbVisual(bulbIndex, '#ffffff');
+    setTimeout(() => setMyBulbVisual(bulbIndex, newColor), 120);
   }
 });
 
@@ -70,7 +77,12 @@ socket.on('assignment', ({ bulbs, color }) => {
   myColor = color;
   if (tapBtn) tapBtn.style.background = color;
   reassignsLeft = 2;
-  if (reassignBtn) { reassignBtn.disabled = false; reassignBtn.style.display = 'block'; reassignBtn.textContent = "Can't see my bulb — Reassign"; }
+  if (reassignBtn) {
+    reassignBtn.disabled = false;
+    reassignBtn.style.display = 'block';
+    reassignBtn.textContent = "Can't see my bulb — Reassign";
+  }
+  if (window.highlightAssignedBulbs) highlightAssignedBulbs(myBulbs);
 });
 
 if (tapBtn) {
@@ -99,6 +111,7 @@ socket.on('bulbReassigned', ({ oldBulb, newBulb, remaining }) => {
     reassignBtn.textContent = `Reassign (${remaining} left)`;
     if (remaining <= 0) reassignBtn.disabled = true;
   }
+  if (window.highlightAssignedBulbs) highlightAssignedBulbs(myBulbs);
 });
 
 socket.on('reassignDenied', ({ reason }) => {
@@ -109,7 +122,7 @@ socket.on('reassignDenied', ({ reason }) => {
   setTimeout(() => (reassignBtn.textContent = original), 1500);
 });
 
-socket.on('capture', ({ scoreboard, playerId }) => {
+socket.on('capture', ({ scoreboard }) => {
   if (scoreDisplay) {
     const me = scoreboard.find(p => p.id === socket.id);
     if (me) scoreDisplay.textContent = `Score: ${me.score}`;
