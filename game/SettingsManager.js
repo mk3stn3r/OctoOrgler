@@ -27,6 +27,17 @@ class SettingsManager extends EventEmitter {
     this.emit('pendingUpdated', this.pendingSettings);
   }
 
+  // Applies a value immediately (live and pending) instead of waiting for the next round.
+  updateNow(pathParts, value) {
+    for (const target of [this.liveSettings, this.pendingSettings]) {
+      let obj = target;
+      for (let i = 0; i < pathParts.length - 1; i++) obj = obj[pathParts[i]] = obj[pathParts[i]] || {};
+      obj[pathParts[pathParts.length - 1]] = JSON.parse(JSON.stringify(value));
+    }
+    this.persistToDisk(this.pendingSettings);
+    this.emit('updatedNow', { path: pathParts, value });
+  }
+
   commitPending() {
     this.liveSettings = JSON.parse(JSON.stringify(this.pendingSettings));
     this.emit('committed', this.liveSettings);

@@ -122,6 +122,14 @@ Open the burger menu (top-right on every page) and choose **Lamp control**, or v
 - Group actions (scenes, breathing, All on/off) need a deCONZ group named exactly **OctoOrgler** that contains the eight lamps. Create it in Phoscon.
 - While a game with players is running, the server refuses lamp commands from the panel (HTTP 409) and the panel shows that it is paused. Once all players leave, the game loop stops and the panel works again.
 - Automatic bulb recovery checks every 10 seconds. It reapplies the last requested state to a lamp that dropped off the Zigbee mesh and came back, and re-sends it if a lamp's reported power or brightness has drifted (e.g. after a short power dip). It never resets or re-pairs lamps.
+- **Lamp order** is the list of deCONZ light IDs clockwise from the top bulb. Chases follow it. It is saved on the server (`deconz.bulbLightIds` in `config/settings.json`), so the game also maps its bulb positions to the right physical lamps. Separate IDs with commas or spaces. Typing all eight IDs once each saves the order; a shorter list is used only until the page is reloaded.
+
+## 8c. Identify the Lamp Order
+
+1. Open **Lamp view** from the burger menu (`/lamp.html`) and press **Identify** (not possible while a game is running).
+2. All OctoOrgler lamps switch off. Then one lamp at a time switches on (white) while its deCONZ ID is shown in large green text. It advances every 3 seconds; use **Pause**, **Previous**, **Next** or change **Seconds per lamp** as needed.
+3. Look at the real lamp. Type the shown ID into the field next to the bulb in the drawing that matches the lit bulb (Pos 1 is the top bulb, then clockwise), or tap that bulb in the drawing to fill it in. Fields that are already saved are pre-filled; duplicates and unknown IDs turn red, and the line below lists the IDs not placed yet.
+4. When all eight are placed, press **Save as lamp order**. Lamp control shows the new order in its **Lamp order** field and the game uses it right away. **Close identify** switches the last lamp off.
 
 ## 9. Production Notes
 

@@ -6,6 +6,7 @@ const GameEngine = require('./game/GameEngine');
 const DeconzBridge = require('./game/DeconzBridge');
 const settingsManager = require('./game/SettingsManager');
 const createDeconzProxy = require('./game/DeconzProxy');
+const createLampOrderRouter = require('./game/LampOrder');
 
 const app = express();
 app.use(express.json());
@@ -41,6 +42,10 @@ deconzBridge.checkReachable().then(reachable => {
 
 const engine = new GameEngine(io, deconzBridge);
 
+function lampControlLock() {
+  return engine.running && engine.players.size > 0 ? 'A game is running. Lamp control is paused until the game ends.' : null;
+}
+
 // Lamp control panel (/control/) reaches deCONZ through this proxy, so the API key stays on the server.
 // Writes are refused while a game round is running so the panel can't disturb play.
 app.use('/api/lampctl', createDeconzProxy({
@@ -52,12 +57,25 @@ app.use('/api/lampctl', createDeconzProxy({
       apiKey: process.env.DECONZ_API_KEY || live.apiKey,
     };
   },
-  isLocked: () => (engine.running && engine.players.size > 0 ?'A game is running. Lamp control is paused until the game ends.' : null),
+  isLocked: lampControlLock,
+}));
+
+// Saved lamp order (set via Identify in the lamp view). Applied to the game bridge immediately.
+app.use('/api/lamp-order', createLampOrderRouter({
+  settings: settingsManager,
+  isLocked: lampControlLock,
+  onChange: order => {
+    deconzBridge.bulbLightIds = order;
+    io.emit('lampOrderUpdated', { order });
+  },
 }));
 
 settingsManager.on('updated', settings => { io.emit('settingsUpdated', settings); });
 settingsManager.on('pendingUpdated', pending => { io.emit('settingsPending', pending); });
-settingsManager.on('committed', live => { io.emit('settingsCommitted', live); });
+settingsManager.on('committed', live => {
+  if (live.deconz && Array.isArray(live.deconz.bulbLightIds)) deconzBridge.bulbLightIds = live.deconz.bulbLightIds;
+  io.emit('settingsCommitted', live);
+});
 
 app.get('/api/settings', (req, res) => {
   res.json({
