@@ -5,6 +5,7 @@ const { Server } = require('socket.io');
 const GameEngine = require('./game/GameEngine');
 const DeconzBridge = require('./game/DeconzBridge');
 const settingsManager = require('./game/SettingsManager');
+const createDeconzProxy = require('./game/DeconzProxy');
 
 const app = express();
 app.use(express.json());
@@ -39,6 +40,20 @@ deconzBridge.checkReachable().then(reachable => {
 });
 
 const engine = new GameEngine(io, deconzBridge);
+
+// Lamp control panel (/control/) reaches deCONZ through this proxy, so the API key stays on the server.
+// Writes are refused while a game round is running so the panel can't disturb play.
+app.use('/api/lampctl', createDeconzProxy({
+  getGateway: () => {
+    const live = settingsManager.getLive().deconz || {};
+    return {
+      host: process.env.DECONZ_HOST || live.gatewayHost,
+      port: process.env.DECONZ_PORT ? parseInt(process.env.DECONZ_PORT, 10) : live.gatewayPort,
+      apiKey: process.env.DECONZ_API_KEY || live.apiKey,
+    };
+  },
+  isLocked: () => (engine.running && engine.players.size > 0 ?'A game is running. Lamp control is paused until the game ends.' : null),
+}));
 
 settingsManager.on('updated', settings => { io.emit('settingsUpdated', settings); });
 settingsManager.on('pendingUpdated', pending => { io.emit('settingsPending', pending); });

@@ -114,6 +114,15 @@ Precedence (highest wins): CLI flag (`--port=8080`) > `PORT` env var > `server.p
 
 Visit `http://<server-ip>:3000/admin` to view and adjust settings live, including the deCONZ gateway host/port and reachability timeout. Changes save immediately but only take effect at the start of the next round.
 
+## 8b. Lamp Control Panel
+
+Open the burger menu (top-right on every page) and choose **Lamp control**, or visit `http://<server-ip>:3000/control/`. Outside of a game you can use it to run static scenes (warm white/yellow/orange), circular chases and a breathing effect, or set colors for the whole lamp.
+
+- It reaches deCONZ through the OctoOrgler server (`/api/lampctl/...`, see `game/DeconzProxy.js`) using the gateway host, port and API key the server already uses. The browser never sees the API key, and the gateway needs no CORS setup.
+- Group actions (scenes, breathing, All on/off) need a deCONZ group named exactly **OctoOrgler** that contains the eight lamps. Create it in Phoscon.
+- While a game with players is running, the server refuses lamp commands from the panel (HTTP 409) and the panel shows that it is paused. Once all players leave, the game loop stops and the panel works again.
+- Automatic bulb recovery checks every 10 seconds. It reapplies the last requested state to a lamp that dropped off the Zigbee mesh and came back, and re-sends it if a lamp's reported power or brightness has drifted (e.g. after a short power dip). It never resets or re-pairs lamps.
+
 ## 9. Production Notes
 
 - Run behind a process manager (e.g. `pm2 start server.js`).

@@ -84,6 +84,12 @@ class GameEngine {
 
   loopRound() {
     if (!this.running) return;
+    // Stop once everyone has left, so the lamps are free again (e.g. for the /control/ panel).
+    if (this.players.size === 0) {
+      this.running = false;
+      this.io.emit('gameStopped', { reason: 'no players' });
+      return;
+    }
 
     const settings = settingsManager.commitPending();
     this.applySettings(settings);

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OctoOrgler — Lamp control</title>
+<style>
+:root{color-scheme:dark;--bg:#10131a;--panel:#1a1f2a;--line:#303847;--text:#eef2f7;--muted:#aab4c3;--accent:#69a7ff}*{box-sizing:border-box}body{margin:0;padding:20px;background:var(--bg);color:var(--text);font:16px system-ui,sans-serif}main{width:min(100%,1100px);margin:auto}h1{margin:0 0 6px;font-size:clamp(1.5rem,4vw,2.2rem)}.subtitle{margin:0 0 20px;color:var(--muted)}.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}.toolbar,.control-row,.advanced-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center}label{display:grid;gap:6px;color:var(--muted)}input[type=text],input[type=number],select,button{min-height:42px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:#111722;color:var(--text);font:inherit}input[type=text]{width:170px}input[type=number]{width:120px}button{cursor:pointer;background:#25334a}button:hover{background:#304563}button.danger{background:#542d38}input[type=range]{width:min(100%,430px);accent-color:var(--accent)}output{color:var(--text);min-width:56px;display:inline-block}.bulb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.bulb{border:1px solid var(--line);border-radius:12px;padding:14px;background:#151a23}.bulb h2{margin:0 0 10px;font-size:1rem}.bulb .row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin:9px 0}.bulb input[type=range]{width:100%}.advanced{width:100%;margin-top:2px}.advanced summary{cursor:pointer;color:var(--muted);margin:6px 0}.advanced-controls{padding:12px 0 2px;border-top:1px solid var(--line)}.advanced-controls label{min-width:145px}.status{min-height:24px;margin-top:12px;color:var(--muted);white-space:pre-wrap}.error{color:#ff9c9c}.ok{color:#9de6b0}.hidden{display:none}@media(max-width:800px){.bulb-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:520px){body{padding:12px}.panel{padding:14px}.bulb-grid{grid-template-columns:1fr}.toolbar>*{width:100%}input[type=text],input[type=number],select,button{width:100%}}
+.picker{width:100%;max-width:400px;display:grid;gap:10px}.picker canvas{width:100%;height:200px;touch-action:none;cursor:crosshair;border-radius:8px}.rgb{display:flex;gap:8px}.rgb label{min-width:0;flex:1}.rgb input{width:100%}#swatch{height:36px;border:1px solid #aaa;border-radius:6px}#pickerHue{width:100%;accent-color:#69a7ff}.picker canvas{height:auto;aspect-ratio:1;max-width:360px;border-radius:50%}.group-settings{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}#pickerBrightness{width:100%}.preset-dropdown{position:relative;min-width:255px;align-self:flex-start}.preset-dropdown summary{cursor:pointer;background:#25334a;border:1px solid var(--line);border-radius:8px;padding:12px}.preset-dropdown summary span{color:var(--muted);font-size:.9rem}.preset-menu{display:grid;gap:6px;padding:8px 0}.preset-menu button{text-align:left;width:100%}.preset-menu button[aria-pressed="true"]{background:#3269a9;border-color:#8ec6ff;box-shadow:inset 4px 0 #b9e1ff}.preset-menu button[aria-pressed="true"]::after{content:' · active';font-size:.85em}.preset-hint{font-size:.85rem;color:var(--muted)}.breathing-settings{margin-top:14px}.breathing-settings summary{cursor:pointer;color:var(--muted);margin-bottom:12px}.breathing-settings input{width:140px}h1{padding-right:56px}</style>
+</head>
+<body><main>
+<h1>OctoOrgler — Lamp control</h1><p class="subtitle">Scenes, chases and breathing for the eight OctoOrgler bulbs. Paused automatically while a game is running.</p>
+<section class="panel"><div class="toolbar"><label>Lamp order<input id="lampOrder" type="text" value="2,3,5,4,1,8,6,7" autocomplete="off"></label></div><p id="gatewayInfo" class="status">Connected through the OctoOrgler server. Gateway address and API key are set in Admin settings / .env.</p></section>
+<section class="panel"><div class="control-row"><label><span>Automatic bulb recovery</span><input id="autoRecovery" type="checkbox" checked></label><button id="recoverNow" type="button">Reinitialize reachable bulbs now</button></div><div id="recoveryStatus" class="status" role="status">Checks every 10 seconds, restores the latest requested state to lamps that dropped out, and re-sends it to lamps whose reported power or brightness has drifted. No resets or re-pairing.</div></section><section class="panel preset-panel"><div class="control-row"><details class="preset-dropdown"><summary>Scenes <span id="sceneChoice">— none</span></summary><div class="preset-menu"><button type="button" data-preset="warm-white" aria-pressed="false">Warm white</button><button type="button" data-preset="warm-yellow" aria-pressed="false">Warm yellow</button><button type="button" data-preset="warm-orange" aria-pressed="false">Warm orange</button></div></details><details class="preset-dropdown"><summary>Motions <span id="motionChoice">— none</span></summary><div class="preset-menu"><button type="button" data-preset="rainbow" aria-pressed="false">Rainbow circular chase</button><button type="button" data-preset="white-chase" aria-pressed="false">Warm white circular chase</button><button type="button" data-preset="breathing" aria-pressed="false">Breathing</button></div></details></div><details class="breathing-settings"><summary>Breathing settings</summary><div class="control-row"><label>Starting brightness (%)<input id="breathStart" type="number" min="1" max="100" step="1" value="20"></label><label>Second brightness (%)<input id="breathEnd" type="number" min="1" max="100" step="1" value="80"></label><label>Full cycle (seconds)<input id="breathCycle" type="number" min="4" max="120" step="0.2" value="8"></label></div><p class="preset-hint">Uses the selected RGB color or white temperature for the whole OctoOrgler group. Change these settings or the color, then restart Breathing to apply. Minimum brightness is 1% so lamps stay on throughout the cycle. Minimum cycle is 4 s, because group commands are Zigbee broadcasts and too many of them get dropped.</p></details><p id="presetInfo" class="status" role="status">Choose a scene or motion. Click the active item again to stop it and switch the group off.</p><p class="preset-hint">Scenes are static with no transition. Circular chases use Lamp order and Chase speed; Breathing uses its own brightness and cycle settings. Only one preset can be active.</p></section>
+<section class="panel"><div class="control-row"><label>Chase speed: <output id="speedValue">1200 ms</output><input id="speed" type="range" min="100" max="3000" step="50" value="1200"></label><label>Color mode<select id="mode"><option value="same">Same color for all bulbs</option><option value="multi">Multicolor chase</option></select></label><label id="globalHueWrap">Global hue: <output id="globalHueValue">0°</output><input id="globalHue" type="range" min="0" max="360" value="0"></label><label id="globalSatWrap">Global saturation: <output id="globalSatValue">100%</output><input id="globalSat" type="range" min="0" max="100" value="100"></label><button id="startStop">Start chase</button><button id="allOn">All on</button><button id="allOff" class="danger">All off</button></div>
+<details class="advanced"><summary>Additional parameters for all lamps</summary><div class="advanced-controls"><label>Power<select id="allStateOn"><option value="true">On</option><option value="false">Off</option></select></label><label>Brightness (bri)<input id="allBri" type="number" min="1" max="254" value="254"></label><label>Color output<select id="colorOutput"><option value="rgb">RGB picker</option><option value="ct">White temperature</option></select></label><label>White temperature (mired)<input id="allCt" type="number" min="153" max="500" value="300"></label><div class="picker"><canvas id="sv" width="360" height="360" tabindex="0" aria-label="Color wheel"></canvas><label>Brightness <output id="pickerBrightnessValue">100%</output><input id="pickerBrightness" type="range" min="0" max="100" value="100"></label><div id="swatch"></div><label>Hex<input id="hex" value="#ff0000" maxlength="7"></label><div class="rgb"><label>Red<input id="red" type="number" min="0" max="255" value="255"></label><label>Green<input id="green" type="number" min="0" max="255" value="0"></label><label>Blue<input id="blue" type="number" min="0" max="255" value="0"></label></div><output id="xyPreview"></output></div><label>Effect<select id="allEffect"><option value="none">None</option><option value="colorloop">Color loop</option></select></label><label>Alert<select id="allAlert"><option value="none">None</option><option value="select">Select</option><option value="lselect">Lselect</option></select></label><label>Transition time (×100 ms)<input id="allTransition" type="number" min="0" max="65535" value="0"></label><button id="applyAllParameters">Apply parameters to all lamps</button></div></details><div class="control-row group-settings"><span>Synchronized group: <strong>OctoOrgler</strong></span><label>Fade time (seconds)<input id="fadeSeconds" type="number" min="0" max="60" step="0.1" value="2"></label><button id="stopPending">Cancel pending actions</button></div><div id="groupInfo" class="status">OctoOrgler is resolved automatically when you use a shared control. Group actions affect all its members; chase remains individual.</div><div id="status" class="status" role="status"></div></section>
+<section class="panel"><h2>Individual bulb colors</h2><div id="bulbs" class="bulb-grid"></div></section>
+</main>
+<script>
+let activePreset=null;
+const presetDefinitions={
+'warm-white':{label:'Warm white',type:'scene',ct:370},
+'warm-yellow':{label:'Warm yellow',type:'scene',rgb:[255,200,70]},
+'warm-orange':{label:'Warm orange',type:'scene',rgb:[255,125,30]},
+'rainbow':{label:'Rainbow circular chase',type:'motion'},
+'white-chase':{label:'Warm white circular chase',type:'motion'},
+'breathing':{label:'Breathing',type:'motion'}
+};
+function renderPresetSelection(){document.querySelectorAll('[data-preset]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.preset===activePreset)));const preset=presetDefinitions[activePreset];$('sceneChoice').textContent=preset?.type==='scene'?'— '+preset.label:'— none';$('motionChoice').textContent=preset?.type==='motion'?'— '+preset.label:'— none'}
+function clearPresetSelection(){activePreset=null;renderPresetSelection();$('presetInfo').textContent='No preset active.'}
+async function presetGroupState(state,signal){const id=await chosenGroup(signal);await groupRequest(id,{...state,transitiontime:0},signal)}
+function readBreathingSettings(){
+const bounded=(id,min,max,fallback)=>{const input=$(id),number=Number(input.value),v=input.value.trim()!==''&&Number.isFinite(number)?Math.max(min,Math.min(max,number)):fallback;input.value=v;return v};
+const startPercent=bounded('breathStart',1,100,20),endPercent=bounded('breathEnd',1,100,80),seconds=bounded('breathCycle',4,120,8);
+return{startPercent,endPercent,start:Math.max(1,Math.round(startPercent/100*254)),end:Math.max(1,Math.round(endPercent/100*254)),halfTime:Math.round(seconds*5)};
+}
+async function runBreathing(signal,generation){
+const settings=readBreathingSettings(),selected=readAllParameters(),color=Object.prototype.hasOwnProperty.call(selected,'ct')?{ct:selected.ct}:{xy:selected.xy};
+const groupId=await chosenGroup(signal);
+await groupRequest(groupId,{on:true,bri:settings.start,...color,effect:'none',alert:'none',transitiontime:0},signal);
+if(signal.aborted||generation!==chaseGeneration)return;
+$('presetInfo').textContent=`Breathing active · ${settings.startPercent}% → ${settings.endPercent}% → ${settings.startPercent}% · ${settings.halfTime/5}s cycle · same color for the entire group.`;
+while(!signal.aborted&&generation===chaseGeneration){
+// Group commands are unacknowledged broadcasts. Repeating on:true every step and the color once per cycle
+// pulls a lamp that missed a broadcast (or rebooted after a power dip) back into the breathing pattern.
+await groupRequest(groupId,{on:true,bri:settings.end,transitiontime:settings.halfTime},signal);
+await pause(settings.halfTime*100,signal);
+if(signal.aborted||generation!==chaseGeneration)return;
+await groupRequest(groupId,{on:true,bri:settings.start,...color,transitiontime:settings.halfTime},signal);
+await pause(settings.halfTime*100,signal);
+}
+}
+async function togglePreset(key){const wasActive=activePreset===key;stopChase();const generation=chaseGeneration,controller=new AbortController();groupController=controller;const signal=controller.signal,preset=presetDefinitions[key];
+try{
+if(wasActive){$('presetInfo').textContent='Switching preset off…';await presetGroupState({on:false,effect:'none'},signal);if(!signal.aborted)$('presetInfo').textContent='Preset disabled; group off.';return}
+activePreset=key;renderPresetSelection();$('presetInfo').textContent='Activating '+preset.label+'…';
+const brightness=Math.max(1,Math.min(254,+$('allBri').value||254));
+if(preset.type==='scene'){const state={on:true,bri:brightness,effect:'none',alert:'none'};if(preset.ct)state.ct=preset.ct;else state.xy=rgbXy(...preset.rgb);await presetGroupState(state,signal);if(!signal.aborted&&generation===chaseGeneration)$('presetInfo').textContent=preset.label+' · static scene active.'}
+else if(key==='breathing'){await runBreathing(signal,generation)}
+else{await presetGroupState({on:false,effect:'none'},signal);if(signal.aborted||generation!==chaseGeneration)return;groupController=null;startChase(key);$('presetInfo').textContent=preset.label+' · follows Lamp order and Chase speed.'}
+}catch(error){if(error.name!=='AbortError'&&generation===chaseGeneration){clearPresetSelection();setStatus('Preset failed: '+error.message,true);$('presetInfo').textContent='Preset could not be activated.'}}finally{if(groupController===controller)groupController=null}}
+
+const desiredBulbs=new Map(),recoveryNeeded=new Set(),recoveryInFlight=new Set();
+let recoveryMembers=[],recoveryRevision=0,recoveryRunning=false,recoverySuspended=false,recoveryEndpoint='';
+// lastAccepted: per-lamp JSON of the last state deCONZ accepted, so the chase only sends changes.
+// desiredAt/onChangedAt/lastDriftRestore: timing for the drift check in recoveryTick.
+const lastAccepted=new Map(),desiredAt=new Map(),onChangedAt=new Map(),lastDriftRestore=new Map();
+const VERIFY_SETTLE_MS=4000,VERIFY_COOLDOWN_MS=30000;
+function rememberDesired(id,state){id=Number(id);const previous=desiredBulbs.get(id)||{};const next={...previous,...state};const now=Date.now();desiredAt.set(id,now);if('on'in state&&previous.on!==state.on)onChangedAt.set(id,now);if('xy'in state){delete next.ct;delete next.hue;delete next.sat}if('ct'in state){delete next.xy;delete next.hue;delete next.sat}if('hue'in state||'sat'in state){delete next.xy;delete next.ct}next.__revision=++recoveryRevision;desiredBulbs.set(id,next)}
+function recoveryMessage(text){$('recoveryStatus').textContent=text}
+function resetRecoveryContext(){const endpoint=apiBase();if(endpoint!==recoveryEndpoint){recoveryEndpoint=endpoint;desiredBulbs.clear();recoveryNeeded.clear();offlineLamps.clear();recoveryMembers=[]}}
+async function recoverBulb(id,lamp,signal,reason='reconnected'){
+id=Number(id);if(recoveryInFlight.has(id))return;const remembered=desiredBulbs.get(id);if(!remembered){recoveryMessage(`Lamp ${id} reachable; no requested state to restore.`);recoveryNeeded.delete(id);return}
+recoveryInFlight.add(id);const snapshot={...remembered},revision=snapshot.__revision;delete snapshot.__revision;
+// Restore a minimal absolute state; do not reset, toggle power, replay alerts, or rejoin.
+// For an "off" target send only on:false: deCONZ answers bri/xy/ct for an off lamp with error 201,
+// which previously made recovery fail on every tick and left the lamp locked out.
+const payload=snapshot.on===false?{on:false,transitiontime:0}:{...snapshot,effect:snapshot.effect||'none',transitiontime:0};delete payload.alert;
+try{if(lamp.state?.reachable!==true||signal.aborted)return;
+const {response,result}=await checkedFetch(`${apiBase()}/lights/${id}/state`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},signal);
+if(response.status===409){recoveryMessage('Recovery paused: '+lockedMessage(result));return}
+if(!response.ok||!Array.isArray(result)||!result.length||result.some(x=>x.error))throw Error(JSON.stringify(result));
+// The lamp accepted a command, so it is controllable again. Previously it stayed marked offline
+// whenever a newer state arrived during this request (constantly, during a chase).
+markLamp(id,false);lastAccepted.delete(id);
+if(desiredBulbs.get(id)?.__revision===revision){recoveryNeeded.delete(id);recoveryMessage(reason==='drift'?`Lamp ${id} had drifted from its requested state; state re-sent.`:`Lamp ${id} reinitialized: latest requested state reapplied.`)}
+else recoveryMessage(`Lamp ${id} reachable again; a newer state was requested meanwhile and will be applied next.`)
+}catch(error){if(!signal.aborted)recoveryMessage(`Lamp ${id} recovery pending: ${error.message}. Next check in 10 seconds.`)}finally{recoveryInFlight.delete(id)}}
+// A lamp can miss a group broadcast, lose its group membership or reboot after a power dip while deCONZ
+// still reports it reachable. Compare deCONZ's reported state with the requested one.
+function stateDrifted(id,lamp){
+if(chaseTimer)return false; // chase uses acknowledged per-lamp commands and changes faster than deCONZ's cache
+const want=desiredBulbs.get(id),have=lamp.state||{},now=Date.now();
+if(!want||typeof want.on!=='boolean'||typeof have.on!=='boolean')return false;
+if(now-(lastDriftRestore.get(id)||0)<VERIFY_COOLDOWN_MS)return false;
+if(have.on!==want.on)return now-(onChangedAt.get(id)||0)>VERIFY_SETTLE_MS;
+if(activePreset==='breathing'||!want.on)return false; // brightness is always moving while breathing
+const settled=now-(desiredAt.get(id)||0)>VERIFY_SETTLE_MS+(Number(want.transitiontime)||0)*100;
+return settled&&Number.isFinite(want.bri)&&Number.isFinite(have.bri)&&Math.abs(have.bri-want.bri)>8;
+}
+async function recoveryTick(manual=false){
+if(recoveryRunning||(!manual&&(!$('autoRecovery').checked||recoverySuspended)))return;
+recoveryRunning=true;const controller=new AbortController();const endpoint=apiBase();
+try{resetRecoveryContext();const {response,result}=await checkedFetch(`${endpoint}/lights`,{},controller.signal);if(!response.ok||!result||Array.isArray(result))throw Error('Cannot read lamp status: '+JSON.stringify(result));if(endpoint!==apiBase())return;
+const ids=new Set([...recoveryMembers,...desiredBulbs.keys(),...recoveryNeeded]);let offline=0;
+for(const id of ids){if(endpoint!==apiBase()||(!manual&&recoverySuspended))break;const lamp=result[String(id)];if(!lamp)continue;
+if(lamp.state?.reachable===false){markLamp(Number(id),true);recoveryNeeded.add(Number(id));offline++;continue}
+if(lamp.state?.reachable===true){const numId=Number(id),wasOffline=offlineLamps.has(numId);markLamp(numId,false);if(wasOffline)recoveryNeeded.add(numId);if(manual||recoveryNeeded.has(numId))await recoverBulb(numId,lamp,controller.signal);else if(!lampJobs.has(numId)&&!recoveryInFlight.has(numId)&&stateDrifted(numId,lamp)){lastDriftRestore.set(numId,Date.now());await recoverBulb(numId,lamp,controller.signal,'drift')}}}
+if(offline)recoveryMessage(`${offline} unreachable lamp(s); checking every 10 seconds. Restore physical power/radio connectivity if necessary.`);
+else if(!ids.size)recoveryMessage('Recovery ready. Activate a scene, motion, or shared action to identify target lamps.');
+}catch(error){recoveryMessage('Recovery monitor: '+error.message)}finally{recoveryRunning=false}}
+const BULBCOUNT=8,BRIGHTNESS=254,RETRY_DELAY=1000,bulbs=Array.from({length:BULBCOUNT},(_,index)=>({id:index+1,hue:Math.round(index*360/BULBCOUNT),sat:100}));let chaseTimer=null,chaseIndex=0;const $=id=>document.getElementById(id),sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+// All deCONZ calls go through the OctoOrgler server's proxy (game/DeconzProxy.js); the API key stays on the server.
+function apiBase(){return '/api/lampctl'}
+// HTTP 409 from the proxy means a game is running and lamp writes are paused.
+function lockedMessage(result){return result?.[0]?.error?.description||'A game is running. Lamp control is paused until the game ends.'}
+async function refreshGatewayInfo(){try{const r=await fetch('/api/lampctl/status');const s=await r.json();$('gatewayInfo').textContent=`Connected through the OctoOrgler server to deCONZ at ${s.gatewayHost}:${s.gatewayPort}.`+(s.locked?' '+s.lockReason:'');$('gatewayInfo').className='status'+(s.locked?' error':'')}catch(e){$('gatewayInfo').textContent='OctoOrgler server not reachable: '+e.message;$('gatewayInfo').className='status error'}}function setStatus(message,error=false){$('status').textContent=message;$('status').className='status '+(error?'error':'ok')}
+function hueToXy(hue,saturation){const h=hue/360*2*Math.PI,s=Math.max(0,Math.min(100,saturation))/100,r=.5+.5*s*Math.cos(h),g=.5+.5*s*Math.cos(h-2*Math.PI/3),b=.5+.5*s*Math.cos(h+2*Math.PI/3),sum=r+g+b||1,R=r/sum,G=g/sum,B=b/sum,X=.664511*R+.154324*G+.162028*B,Y=.283881*R+.668433*G+.047685*B,Z=.000088*R+.07231*G+.986039*B,d=X+Y+Z||1;return[+(X/d).toFixed(4),+(Y/d).toFixed(4)]}function colorState(hue,saturation){return{on:true,bri:BRIGHTNESS,xy:hueToXy(hue,saturation),effect:'none'}}
+function failedKeys(result,state){const keys=new Set();for(const item of result||[]){const address=item?.error?.address||'',match=address.match(/\/state\/([^/]+)$/);if(match&&Object.prototype.hasOwnProperty.call(state,match[1]))keys.add(match[1])}return keys.size?Object.fromEntries([...keys].map(key=>[key,state[key]])):state}
+async function sendStateOnce(id,state){const response=await fetch(`${apiBase()}/lights/${id}/state`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)}),result=await response.json().catch(()=>null);if(!response.ok){const error=new Error(`Lamp ${id}: HTTP ${response.status} ${JSON.stringify(result)}`);error.retryState=state;throw error}if(Array.isArray(result)&&result.some(item=>item&&item.error)){const error=new Error(`Lamp ${id}: ${JSON.stringify(result)}`);error.retryState=failedKeys(result,state);throw error}return result}
+
+let groupController=null;
+const SYNC_GROUP_NAME='OctoOrgler';
+function fadeTime(){return Math.round(Math.max(0,Math.min(60,+$('fadeSeconds').value||0))*10)}
+async function chosenGroup(signal){
+const {response,result}=await checkedFetch(`${apiBase()}/groups`,{},signal);
+if(!response.ok||!result||Array.isArray(result)||typeof result!=='object')throw Error('Cannot resolve OctoOrgler group: '+JSON.stringify(result));
+const matches=Object.entries(result).filter(([id,group])=>group&&group.name===SYNC_GROUP_NAME);
+if(matches.length!==1)throw Error(matches.length?'More than one group is named OctoOrgler. Rename duplicate groups before using shared controls.':'No deCONZ group named OctoOrgler was found. Check the group name and connection settings.');
+const [id,group]=matches[0];resetRecoveryContext();recoveryMembers=(group.lights||[]).map(Number);
+$('groupInfo').textContent=`OctoOrgler · ID ${id} · members: ${(group.lights||[]).join(', ')||'none'}. Shared controls affect the entire group.`;
+return id;
+}
+async function groupRequest(id,state,signal){resetRecoveryContext();recoverySuspended=false;lastAccepted.clear();for(const member of recoveryMembers)rememberDesired(member,state);for(let attempt=0;;attempt++){if(signal.aborted)throw new DOMException('Cancelled','AbortError');try{const {response,result}=await checkedFetch(`${apiBase()}/groups/${encodeURIComponent(id)}/action`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)},signal);const errors=Array.isArray(result)?result.filter(x=>x.error):[];if(!response.ok||errors.length||!Array.isArray(result)||!result.length){const error=new Error(`Group ${id}: HTTP ${response.status} ${JSON.stringify(result)}`);if(response.status===409)error.message=lockedMessage(result);error.permanent=response.status===409||response.status===503||response.status===400||response.status===401||response.status===403||response.status===404||errors.some(x=>![901,202].includes(Number(x.error.type)));throw error}return;}catch(error){if(signal.aborted)throw new DOMException('Cancelled','AbortError');if(error.permanent)throw error;setStatus(`Group request failed: ${error.message}. Retrying the group in 1 second.`,true);await pause(1000,signal)}}}
+async function runGroup(state){const controller=new AbortController();groupController=controller;const signal=controller.signal,time=fadeTime();try{const id=await chosenGroup(signal);
+if(state.on===false){if(time>0){await groupRequest(id,{bri:0,transitiontime:time},signal);await pause(time*100+150,signal)}await groupRequest(id,{on:false},signal)}else{const payload={...state,on:true,transitiontime:time};if(!Number.isFinite(payload.bri))payload.bri=+$('allBri').value||254;await groupRequest(id,payload,signal)}
+if(!signal.aborted)setStatus(`Group ${id}: ${state.on===false?'fade-out and off sent':'shared state sent'} (${time/10}s). API acceptance is not a per-lamp delivery confirmation.`);
+}finally{if(groupController===controller)groupController=null}}
+const lampJobs=new Map(),offlineLamps=new Set();
+function cancelJobs(){for(const job of lampJobs.values())job.controller.abort();lampJobs.clear()}
+function pause(ms,signal){return new Promise((resolve,reject)=>{if(signal.aborted)return reject(new DOMException('Cancelled','AbortError'));const done=()=>{signal.removeEventListener('abort',abort);resolve()};const timer=setTimeout(done,ms);function abort(){clearTimeout(timer);reject(new DOMException('Cancelled','AbortError'))}signal.addEventListener('abort',abort,{once:true})})}
+function markLamp(id,offline){if(offline)offlineLamps.add(id);else offlineLamps.delete(id);const index=bulbs.findIndex(b=>b.id===id),card=$('bulbs').children[index];if(card)card.querySelector('h2').textContent=`Lamp ${id}${offline?' · offline':''}`}
+// At most two requests to deCONZ at a time. Bursts of parallel PUTs overflow the ConBee/RaspBee send
+// queue; commands get dropped and the weakest lamp in the mesh is the one that falls behind or is marked unreachable.
+const MAX_PARALLEL_REQUESTS=2;let requestsInFlight=0;const requestWaiters=[];
+function wakeNextRequest(){const next=requestWaiters.shift();if(next)next()}
+async function acquireRequestSlot(signal){while(requestsInFlight>=MAX_PARALLEL_REQUESTS){await new Promise(resolve=>requestWaiters.push(resolve));if(signal.aborted){wakeNextRequest();throw new DOMException('Cancelled','AbortError')}}requestsInFlight++}
+async function checkedFetch(url,options,signal){if(signal.aborted)throw new DOMException('Cancelled','AbortError');await acquireRequestSlot(signal);const controller=new AbortController(),abort=()=>controller.abort();signal.addEventListener('abort',abort,{once:true});if(signal.aborted)controller.abort();const timer=setTimeout(()=>controller.abort(),8000);try{const response=await fetch(url,{...options,signal:controller.signal});const result=await response.json();return {response,result}}finally{clearTimeout(timer);signal.removeEventListener('abort',abort);requestsInFlight--;wakeNextRequest()}}
+async function putState(id,state){resetRecoveryContext();recoverySuspended=false;rememberDesired(id,state);const stateKey=JSON.stringify(state);lastAccepted.delete(id);const previous=lampJobs.get(id);if(previous)previous.controller.abort();const job={controller:new AbortController()};lampJobs.set(id,job);const signal=job.controller.signal;let pending={...state},attempt=0;
+try{for(;;){if(signal.aborted)return;try{
+if(offlineLamps.has(id)){recoveryNeeded.add(id);return}
+const {response,result}=await checkedFetch(`${apiBase()}/lights/${id}/state`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(pending)},signal);
+if(response.status===409){setStatus(lockedMessage(result),true);stopChase();return}
+const errors=Array.isArray(result)?result.filter(x=>x.error):[];
+if(errors.some(x=>Number(x.error.type)===202)){markLamp(id,true);recoveryNeeded.add(id);setStatus(`Lamp ${id} unreachable; recovery monitor will retry its latest state when reachable.`,true);return}
+if(!response.ok||!Array.isArray(result)||!result.length||errors.length){if(errors.length)pending=failedKeys(result,pending);throw Error(`Lamp ${id}: HTTP ${response.status} ${JSON.stringify(result)}`)}
+markLamp(id,false);lastAccepted.set(id,stateKey);return result;
+}catch(error){if(signal.aborted)return;attempt++;if(attempt>=3){recoveryNeeded.add(id);markLamp(id,true);recoveryMessage(`Lamp ${id} failed three times; handed to the recovery monitor.`);return}setStatus(`${error.message}\nRetrying lamp ${id} in 1 second (attempt ${attempt}).`,true);await pause(1000,signal)}}
+}catch(error){if(!signal.aborted)throw error}finally{if(lampJobs.get(id)===job)lampJobs.delete(id)}}
+let chaseGeneration=0;
+function stopChase(){clearPresetSelection();if(groupController)groupController.abort();groupController=null;chaseGeneration++;chaseTimer=null;cancelJobs();$('startStop').textContent='Start chase'}
+function startChase(motionKind='manual'){if(chaseTimer)return;const generation=++chaseGeneration;chaseTimer=true;chaseIndex=0;lastAccepted.clear();$('startStop').textContent='Stop chase';(async()=>{while(chaseTimer&&generation===chaseGeneration){const order=getOrder(),id=order[chaseIndex%order.length],b=bulbs.find(x=>x.id===id),same=$('mode').value==='same',h=same?+$('globalHue').value:b.hue,sat=same?+$('globalSat').value:b.sat;
+// Each step replaces older desired states. Await online lamps only; offline jobs keep polling independently.
+const online=[];for(const lamp of bulbs){const brightness=Math.max(1,Math.min(254,+$('allBri').value||254));let activeState=colorState(h,sat);if(motionKind==='white-chase')activeState={on:true,bri:brightness,ct:370,effect:'none',transitiontime:0};if(motionKind==='rainbow'){const position=order.indexOf(id);activeState={on:true,bri:brightness,xy:hueToXy(position*360/order.length,100),effect:'none',transitiontime:0}}const target=lamp.id===id?activeState:{on:false,transitiontime:0};
+// Send only what changed (about 2 commands per step instead of 8). Re-sending "off" to seven lamps every step flooded the Zigbee queue.
+if(!offlineLamps.has(lamp.id)&&lastAccepted.get(lamp.id)===JSON.stringify(target))continue;
+const task=putState(lamp.id,target);if(!offlineLamps.has(lamp.id))online.push({task,id:lamp.id})}
+await Promise.all(online.map(({task,id})=>Promise.race([task,new Promise(resolve=>{const poll=setInterval(()=>{if(generation!==chaseGeneration||offlineLamps.has(id)){clearInterval(poll);resolve()}},100);task.finally(()=>{clearInterval(poll);resolve()})})])));
+if(generation!==chaseGeneration)break;chaseIndex=(chaseIndex+1)%order.length;await sleep(+$('speed').value)}})().catch(error=>{setStatus(error.message,true);stopChase()})}
+function restartTimerIfRunning(){}
+
+async function setAll(on){stopChase();try{if(on){const state=readAllParameters();state.on=true;await runGroup(state)}else await runGroup({on:false})}catch(error){if(error.name!=='AbortError')setStatus(error.message,true)}}
+function readAllParameters(){const state={on:$('allStateOn').value==='true',bri:+$('allBri').value,effect:$('allEffect').value,alert:$('allAlert').value,transitiontime:+$('allTransition').value};if($('colorOutput').value==='ct')state.ct=+$('allCt').value;else{const saved=value;value=1;const chroma=hsvRgb();value=saved;state.xy=rgbXy(...chroma);state.bri=Math.max(1,Math.round(value*254));if(value===0)state.on=false}return state}
+async function applyAllParameters(){stopChase();try{await runGroup(readAllParameters())}catch(error){if(error.name!=='AbortError')setStatus(error.message,true)}}
+function getOrder(){const values=$('lampOrder').value.split(',').map(v=>Number(v.trim())),order=values.filter(id=>Number.isInteger(id)&&id>=1&&id<=BULBCOUNT);return order.length?[...new Set(order)]:bulbs.map(b=>b.id)}function renderBulbs(){$('bulbs').innerHTML=bulbs.map((b,i)=>`<article class="bulb"><h2>Lamp ${b.id}</h2><div class="row"><label for="hue-${i}">Hue</label><output id="hue-out-${i}">${b.hue}°</output></div><input id="hue-${i}" type="range" min="0" max="360" value="${b.hue}" aria-label="Lamp ${b.id} hue"><div class="row"><label for="sat-${i}">Saturation</label><output id="sat-out-${i}">${b.sat}%</output></div><input id="sat-${i}" type="range" min="0" max="100" value="${b.sat}" aria-label="Lamp ${b.id} saturation"></article>`).join('');bulbs.forEach((b,i)=>{$(`hue-${i}`).addEventListener('input',e=>{b.hue=+e.target.value;$(`hue-out-${i}`).textContent=b.hue+'°'});$(`sat-${i}`).addEventListener('input',e=>{b.sat=+e.target.value;$(`sat-out-${i}`).textContent=b.sat+'%'})})}
+
+let rgb=[255,0,0],hue=0,saturation=1,value=1;
+function rgbXy(...channels){const [r,g,b]=channels.map(v=>{v/=255;return v>.04045?((v+.055)/1.055)**2.4:v/12.92});const X=.664511*r+.154324*g+.162028*b,Y=.283881*r+.668433*g+.047685*b,Z=.000088*r+.072310*g+.986039*b,d=X+Y+Z;return d?[+(X/d).toFixed(4),+(Y/d).toFixed(4)]:[.3127,.3290]}
+function hsvRgb(){const c=value*saturation,x=c*(1-Math.abs(hue/60%2-1)),m=value-c,parts=hue<60?[c,x,0]:hue<120?[x,c,0]:hue<180?[0,c,x]:hue<240?[0,x,c]:hue<300?[x,0,c]:[c,0,x];return parts.map(v=>Math.round((v+m)*255))}
+let wheelBackground;
+function paintPicker(){const canvas=$('sv'),ctx=canvas.getContext('2d'),n=canvas.width,radius=n/2-10;if(!wheelBackground){const img=ctx.createImageData(n,n);for(let y=0;y<n;y++)for(let x=0;x<n;x++){const dx=x-n/2,dy=y-n/2,d=Math.hypot(dx,dy)/radius;if(d>1)continue;const h=(Math.atan2(dy,dx)*180/Math.PI+360)%360,c=d,z=c*(1-Math.abs(h/60%2-1)),m=1-c,p=h<60?[c,z,0]:h<120?[z,c,0]:h<180?[0,c,z]:h<240?[0,z,c]:h<300?[z,0,c]:[c,0,z],i=(y*n+x)*4;for(let k=0;k<3;k++)img.data[i+k]=Math.round((p[k]+m)*255);img.data[i+3]=Math.min(255,Math.round((1-d)*radius*255))}wheelBackground=img}ctx.putImageData(wheelBackground,0,0);ctx.beginPath();ctx.arc(n/2+Math.cos(hue*Math.PI/180)*saturation*radius,n/2+Math.sin(hue*Math.PI/180)*saturation*radius,8,0,Math.PI*2);ctx.lineWidth=5;ctx.strokeStyle='#111';ctx.stroke();ctx.lineWidth=2;ctx.strokeStyle='white';ctx.stroke();const hex='#'+rgb.map(x=>x.toString(16).padStart(2,'0')).join('');$('swatch').style.background=hex;$('hex').value=hex;['red','green','blue'].forEach((id,i)=>$(id).value=rgb[i]);$('pickerBrightness').value=Math.round(value*100);$('pickerBrightnessValue').textContent=Math.round(value*100)+'%';$('allBri').value=Math.max(1,Math.round(value*254));$('xyPreview').textContent='deCONZ XY: '+rgbXy(...rgb).join(', ')}
+function fromRgb(channels){rgb=channels.map(x=>Math.max(0,Math.min(255,Math.round(+x||0))));const [r,g,b]=rgb.map(x=>x/255),max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;value=max;saturation=max?d/max:0;if(d)hue=((max===r?(g-b)/d:max===g?(b-r)/d+2:(r-g)/d+4)*60+360)%360;paintPicker()}
+function pointer(e){const c=$('sv'),r=c.getBoundingClientRect(),x=(e.clientX-r.left)*c.width/r.width-c.width/2,y=(e.clientY-r.top)*c.height/r.height-c.height/2;hue=(Math.atan2(y,x)*180/Math.PI+360)%360;saturation=Math.min(1,Math.hypot(x,y)/(c.width/2-10));rgb=hsvRgb();paintPicker()}
+$('sv').addEventListener('pointerdown',e=>{$('sv').setPointerCapture(e.pointerId);pointer(e)});$('sv').addEventListener('pointermove',e=>{if($('sv').hasPointerCapture(e.pointerId))pointer(e)});$('sv').addEventListener('pointerup',e=>{if($('sv').hasPointerCapture(e.pointerId))$('sv').releasePointerCapture(e.pointerId)});$('pickerBrightness').addEventListener('input',e=>{value=+e.target.value/100;rgb=hsvRgb();paintPicker()});$('allBri').addEventListener('change',e=>{value=Math.max(0,Math.min(254,+e.target.value||0))/254;rgb=hsvRgb();paintPicker()});
+$('hex').addEventListener('change',e=>{const match=/^#?([0-9a-f]{6})$/i.exec(e.target.value.trim());if(match)fromRgb([0,2,4].map(i=>parseInt(match[1].slice(i,i+2),16)));else paintPicker()});['red','green','blue'].forEach(id=>$(id).addEventListener('change',()=>fromRgb(['red','green','blue'].map(id=>$(id).value))));paintPicker();
+
+$('speed').addEventListener('input',e=>{$('speedValue').textContent=e.target.value+' ms';restartTimerIfRunning()});$('globalHue').addEventListener('input',e=>$('globalHueValue').textContent=e.target.value+'°');$('globalSat').addEventListener('input',e=>$('globalSatValue').textContent=e.target.value+'%');$('mode').addEventListener('change',e=>{$('globalHueWrap').classList.toggle('hidden',e.target.value!=='same');$('globalSatWrap').classList.toggle('hidden',e.target.value!=='same')});$('startStop').addEventListener('click',()=>{if(chaseTimer)stopChase();else{stopChase();startChase()}});$('allOn').addEventListener('click',()=>setAll(true));$('allOff').addEventListener('click',()=>setAll(false));$('applyAllParameters').addEventListener('click',applyAllParameters);renderBulbs();
+
+$('stopPending').addEventListener('click',()=>{stopChase();recoverySuspended=true;recoveryNeeded.clear();setStatus('Pending actions cancelled; automatic restoration paused until the next lamp action.')});
+function updatePickerMode(){const ct=$('colorOutput').value==='ct';$('allCt').closest('label').hidden=!ct;document.querySelector('.picker').style.display=ct?'none':'grid'}$('colorOutput').addEventListener('change',updatePickerMode);updatePickerMode();
+
+document.querySelectorAll('[data-preset]').forEach(button=>button.addEventListener('click',()=>togglePreset(button.dataset.preset)));renderPresetSelection();
+
+$('recoverNow').addEventListener('click',()=>{recoverySuspended=false;recoveryTick(true)});$('autoRecovery').addEventListener('change',()=>{recoveryMessage($('autoRecovery').checked?'Automatic recovery enabled.':'Automatic recovery disabled.');if($('autoRecovery').checked){recoverySuspended=false;recoveryTick()}});setInterval(()=>recoveryTick(),10000);refreshGatewayInfo();setInterval(refreshGatewayInfo,10000);
+</script><script src="/menu.js" defer></script></body></html>
